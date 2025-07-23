@@ -23,12 +23,21 @@ const argv = yargs(process.argv.slice(2))
   .command('explain <file>', 'Explain a code file')
   .command('comic <file>', 'Turn text into a 4-panel comic strip', {
     overlay: {
-      describe: 'Overlay dialogue on comic panels',
+      describe: 'Overlay dialogue as plain caption',
+      type: 'boolean',
+      default: false,
+    },
+    'speech-bubble': {
+      describe: 'Overlay dialogue using a speech bubble (auto position)',
       type: 'boolean',
       default: false,
     },
   })
   .help().argv;
+
+if (argv.overlay && argv['speech-bubble']) {
+  console.warn('⚠️ Both --overlay and --speech-bubble are enabled. Defaulting to --overlay. To use speech bubbles, omit --overlay.');
+}
 
 const cmd = argv._[0];
 const file = argv.file || argv._[1];
@@ -81,6 +90,7 @@ if (cmd === 'comic') {
 
     if (/^\*\*?Panel\s*\d+:\*\*?/i.test(line)) {
       let sceneLine = '';
+      let speaker = '';
       let dialogueLine = '';
 
       for (let j = i + 1; j < lines.length; j++) {
@@ -91,6 +101,7 @@ if (cmd === 'comic') {
         }
         const dialogMatch = next.match(/^\*\*(.*?)\*\*:\s*(.*)/) || next.match(/^(.*?)\s*[:：]\s*(.*)/);
         if (dialogMatch && dialogMatch[2]) {
+          speaker = dialogMatch[1].trim();
           dialogueLine = dialogMatch[2].replace(/^"|"$/g, '').trim();
         }
         if (sceneLine && dialogueLine) break;
@@ -122,14 +133,24 @@ if (cmd === 'comic') {
         writeFileSync(fileName, buffer);
         console.log(`Saved ${fileName}`);
 
+        let finalPath = fileName;
         if (argv.overlay && dialogueLine) {
           const captionedFile = `${runDir}/panel${panelCount}_captioned.png`;
           const cmd = `convert "${fileName}" -gravity south -background black -splice 0x50 -fill white -pointsize 16 -annotate +0+5 "${dialogueLine}" "${captionedFile}"`;
           execSync(cmd);
-          imagePaths.push(captionedFile);
-        } else {
-          imagePaths.push(fileName);
+          finalPath = captionedFile;
+        } else if (argv['speech-bubble'] && dialogueLine) {
+          const bubbleFile = `${runDir}/panel${panelCount}_bubble.png`;
+          const gravity = /mini/i.test(speaker) ? 'northwest' : 'northeast';
+          const drawTail = /mini/i.test(speaker)
+            ? "polygon 50,50 70,80 90,50"
+            : "polygon 462,50 442,80 422,50";
+          const cmd = `convert "${fileName}" -fill white -stroke black -strokewidth 2 -draw "roundrectangle 20,20 300,90 20,20 ${drawTail}" -fill black -pointsize 14 -gravity ${gravity} -annotate +25+25 "${dialogueLine}" "${bubbleFile}"`;
+          execSync(cmd);
+          finalPath = bubbleFile;
         }
+
+        imagePaths.push(finalPath);
       } catch (e) {
         console.warn(`⚠️ Failed to generate image for panel ${panelCount}:`, e.message);
       }

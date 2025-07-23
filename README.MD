@@ -55,6 +55,10 @@ node assist.js comic story.txt
 ## To add overlay
 node assist.js comic story.txt --overlay
 
+## To add speech bubble
+node assist.js comic story.txt --speech-bubble
+
+
 
 📦 Requirements
 Node.js
