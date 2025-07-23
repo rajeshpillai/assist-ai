@@ -21,7 +21,13 @@ const argv = yargs(process.argv.slice(2))
   .command('summarize <file>', 'Summarize a text file')
   .command('translate <file>', 'Translate a file', { lang: { type: 'string', demandOption: true } })
   .command('explain <file>', 'Explain a code file')
-  .command('comic <file>', 'Turn text into a 4-panel comic strip')
+  .command('comic <file>', 'Turn text into a 4-panel comic strip', {
+    overlay: {
+      describe: 'Overlay dialogue on comic panels',
+      type: 'boolean',
+      default: false,
+    },
+  })
   .help().argv;
 
 const cmd = argv._[0];
@@ -75,14 +81,19 @@ if (cmd === 'comic') {
 
     if (/^\*\*?Panel\s*\d+:\*\*?/i.test(line)) {
       let sceneLine = '';
+      let dialogueLine = '';
 
       for (let j = i + 1; j < lines.length; j++) {
         const next = lines[j].trim();
         const match = next.match(/(?:\*+\s*)?(?:Scene(?: Description)?):\s*(.*?)\**$/i);
         if (match && match[1]) {
           sceneLine = match[1].trim();
-          break;
         }
+        const dialogMatch = next.match(/^\*\*(.*?)\*\*:\s*(.*)/) || next.match(/^(.*?)\s*[:：]\s*(.*)/);
+        if (dialogMatch && dialogMatch[2]) {
+          dialogueLine = dialogMatch[2].replace(/^"|"$/g, '').trim();
+        }
+        if (sceneLine && dialogueLine) break;
       }
 
       if (!sceneLine) {
@@ -110,7 +121,15 @@ if (cmd === 'comic') {
         const fileName = `${runDir}/panel${panelCount}.png`;
         writeFileSync(fileName, buffer);
         console.log(`Saved ${fileName}`);
-        imagePaths.push(fileName);
+
+        if (argv.overlay && dialogueLine) {
+          const captionedFile = `${runDir}/panel${panelCount}_captioned.png`;
+          const cmd = `convert "${fileName}" -gravity south -background black -splice 0x50 -fill white -pointsize 16 -annotate +0+5 "${dialogueLine}" "${captionedFile}"`;
+          execSync(cmd);
+          imagePaths.push(captionedFile);
+        } else {
+          imagePaths.push(fileName);
+        }
       } catch (e) {
         console.warn(`⚠️ Failed to generate image for panel ${panelCount}:`, e.message);
       }
