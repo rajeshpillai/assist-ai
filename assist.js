@@ -59,9 +59,12 @@ console.log(output);
 
 if (cmd === 'comic') {
   if (!existsSync('output')) mkdirSync('output');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const runDir = `output/run-${timestamp}`;
+  mkdirSync(runDir);
 
-  writeFileSync('output/comic_script.txt', output);
-  console.log('\nComic script saved to output/comic_script.txt');
+  writeFileSync(`${runDir}/comic_script.txt`, output);
+  console.log(`\nComic script saved to ${runDir}/comic_script.txt`);
 
   const lines = output.split('\n');
   let panelCount = 0;
@@ -70,14 +73,11 @@ if (cmd === 'comic') {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // Match **Panel 1:** etc
     if (/^\*\*?Panel\s*\d+:\*\*?/i.test(line)) {
       let sceneLine = '';
 
-      // Look ahead for a line containing scene description
       for (let j = i + 1; j < lines.length; j++) {
         const next = lines[j].trim();
-
         const match = next.match(/(?:\*+\s*)?(?:Scene(?: Description)?):\s*(.*?)\**$/i);
         if (match && match[1]) {
           sceneLine = match[1].trim();
@@ -107,7 +107,7 @@ if (cmd === 'comic') {
 
         const imgFetch = await fetch(imageUrl);
         const buffer = Buffer.from(await imgFetch.arrayBuffer());
-        const fileName = `output/panel${panelCount}.png`;
+        const fileName = `${runDir}/panel${panelCount}.png`;
         writeFileSync(fileName, buffer);
         console.log(`Saved ${fileName}`);
         imagePaths.push(fileName);
@@ -119,7 +119,7 @@ if (cmd === 'comic') {
 
   if (imagePaths.length > 0) {
     try {
-      const outputPath = 'output/final_comic_strip.png';
+      const outputPath = `${runDir}/final_comic_strip.png`;
       const cmd = `convert +append ${imagePaths.join(' ')} ${outputPath}`;
       execSync(cmd, { stdio: 'inherit' });
       console.log(`\n✅ Combined comic strip saved to ${outputPath}`);
@@ -127,7 +127,7 @@ if (cmd === 'comic') {
       console.error('\n⚠️ Failed to combine images with ImageMagick.');
       console.error('Reason:', err.message);
       console.error('💡 Tip: Try running this manually to debug:');
-      console.error(`convert +append ${imagePaths.join(' ')} output/final_comic_strip.png`);
+      console.error(`convert +append ${imagePaths.join(' ')} ${runDir}/final_comic_strip.png`);
     }
   } else {
     console.warn('\n⚠️ No comic panels were generated. Skipping strip assembly.');
