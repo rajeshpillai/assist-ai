@@ -52,6 +52,10 @@ node assist.js explain script.js
 # Turn a short story into a 4-panel comic
 node assist.js comic story.txt
 
+## To add overlay
+node assist.js comic story.txt --overlay
+
+
 📦 Requirements
 Node.js
 
